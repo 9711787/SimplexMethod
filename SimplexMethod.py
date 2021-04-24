@@ -1,7 +1,7 @@
 """
 SIMPLEX METHOD
 Based on Chapter 4 of Introduction to Operations Research (10th Edition)
-by Hilier and Lieberman
+by Hilier and Lieberman.
 
 Features Missing:
 Decision Variables with Negative Bound
@@ -20,18 +20,56 @@ class InputError(Exception):
         self.message = message
 
 # This performs divisions for minimum ratio test 
-def _ratios(a,b):
-    r = []
-    if len(a) == len(b):
-        for i in np.arange(len(a)):
-            if b[i] <= 0:
-                r.append(np.Inf)
+def _ratios(constraint_rhs, pivot_coeff):
+    """
+    Used to calculate ratios for the Minimal Ratio Test.
+    Replaces a result by np.Inf when a divisor is non-posive.
+    
+    Input:
+    constraint_rhs: float
+        right hand sides of constraints from a tableau
+    pivot_coeff: float
+        coefficients of constraints in a pivot column
+    
+    Output:
+    ratios: float
+        ratios ready for the Minimal Ratio Test
+    """
+    ratios = []
+    if len(constraint_rhs) == len(pivot_coeff):
+        for i in np.arange(len(constraint_rhs)):
+            if pivot_coeff[i] <= 0:
+                ratios.append(np.Inf)
             else:
-                r.append(a[i]/b[i])
-    return np.array(r)
+                ratios.append(constraint_rhs[i]/pivot_coeff[i])
+    else:
+        raise InputError((len(constraint_rhs), len(pivot_coeff)), "Length of the arrays is not equal.")
+    return np.array(ratios)
 
 def simplex_method(Z_input, LHS_input, RHS_input, comparisons_input, goal, M = 100000000):
+    """
+    Solves a linear programming problem using the Simplex Method
 
+    Input:
+    Z_input: int or float array; shape(number of decision variables,)
+        decision variable coefficients of an objective function
+    LHS_input: int or float array; shape(number of constraints, number of decision variable)
+        left hand sides of constraint equations; decision variable coefficients of constraints
+    RHS_input: int or float array; shape(number of constraints,)
+        right hand sides of constraint equations; a single value per constraints
+    comparisons_input: list of str; valid values are '<=', '>=','and '='
+        non-equality and equality operators of constraints
+    goal: str; valid values are 'max' or 'min'
+        use 'max' to solve for maximum or 'min' to solve for minimum
+    M: int or float
+        used by the Big M Method when '>=' or '=' are present; must be high enough for a given problem
+
+    Output:
+        result: dict;
+            Goal: str; 'max' when solved for maximum or 'min' when solve for minimum
+            Z_Optimal: float; optimal value of objective function
+            Final_Tab: float array; final tableau
+    """
     # Check the goal
     if goal not in ['max','min']:
         raise InputError(goal, "Goal {goal} is not valid value. Use 'max' to maximize or 'min' to minimize.".format(goal=goal))
@@ -116,6 +154,8 @@ def simplex_method(Z_input, LHS_input, RHS_input, comparisons_input, goal, M = 1
             Z = np.append(Z, M)
             # Store which constraint contains artificial variable
             artificial_rows.append(constrain_index)
+        else:
+            raise InputError(comparisons[constrain_index], "Comparison {comp} is not a valid. Valid values are '<=', '>=','and '='.".format(comp=comparisons[constrain_index]))
     # Add surplus variables to the objective function
     Z = np.append(Z, np.zeros(surplus_constraints))
     # Format input into right shape to support calculations
@@ -167,11 +207,11 @@ def simplex_method(Z_input, LHS_input, RHS_input, comparisons_input, goal, M = 1
         # Process final tableau to obtain results
     results = {}
     if goal == 'max':
-        results['Goal'] = 'Maximize'
+        results['Goal'] = goal
         results['Z_Optimal'] = tableau[0, -1]
         results['Final_Tab'] = tableau
     elif goal == 'min':
-        results['Goal'] = 'Minimize'
+        results['Goal'] = goal
         results['Z_Optimal'] = -1 * tableau[0, -1]
         results['Final_Tab'] = tableau
     return results
